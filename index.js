@@ -24,10 +24,14 @@ export async function connectToMongoDB() {
 }
 const mongodbClient = await connectToMongoDB();
 const db = mongodbClient.db("studio-space");
-const studiodb = db.collection("studio");
+const studioCollection = db.collection("studio");
 
 app.get("/", (req, res) => {
   res.send("server is runings");
+});
+app.post("/studios", async (req, res) => {
+  const data = req.body;
+  const result = await studioCollection.insertOne(data);
 });
 
 app.listen(port, () => {
