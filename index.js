@@ -25,6 +25,8 @@ export async function connectToMongoDB() {
 const mongodbClient = await connectToMongoDB();
 const db = mongodbClient.db("studio-space");
 const studioCollection = db.collection("stideos-data");
+const bookingCollection = db.collection("booking-studios");
+
 // all get api
 app.get("/", (req, res) => {
   res.send("server is runings");
@@ -34,6 +36,12 @@ app.get("/studios", async (req, res) => {
   const data = await studioCollection.find().toArray();
   res.send(data);
 });
+// one data for
+app.get("/studios/:id", async (req, res) => {
+  const { id } = req.params;
+  const result = await studioCollection.findOne({ _id: new ObjectId(id) });
+  res.send(result);
+});
 
 //all post api
 app.post("/add-studios", async (req, res) => {
@@ -41,6 +49,11 @@ app.post("/add-studios", async (req, res) => {
   const result = await studioCollection.insertOne(data);
   res.send(result);
 });
+// app.post("/booking-studios", async (req, res) => {
+//   const data = req.body;
+//   const result = await bookingCollection.insertOne(data);
+//   res.send(result);
+// });
 
 app.listen(port, () => {
   console.log(`server app listening on port ${port}`);
