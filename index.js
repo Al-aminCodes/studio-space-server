@@ -67,13 +67,13 @@ app.get("/studios", async (req, res) => {
   res.send(data);
 });
 // one data for
-app.get("/studios/:id", async (req, res) => {
+app.get("/studios/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
   const result = await studioCollection.findOne({ _id: new ObjectId(id) });
   res.send(result);
 });
 // my bookings api
-app.get("/my-bookings/:email", async (req, res) => {
+app.get("/my-bookings/:email", verifyToken, async (req, res) => {
   try {
     const email = req.params.email.trim().toLowerCase();
 
@@ -100,7 +100,7 @@ app.get("/studios-limit", async (req, res) => {
   res.send(data);
 });
 // my listing api
-app.get("/my-listings/:email", async (req, res) => {
+app.get("/my-listings/:email", verifyToken, async (req, res) => {
   const { email } = req.params;
   const result = await studioCollection.find({ userEmail: email }).toArray();
   res.send(result);
@@ -136,13 +136,13 @@ app.get("/studios/categories/count", async (req, res) => {
 });
 
 //all post api
-app.post("/add-studios", async (req, res) => {
+app.post("/add-studios", verifyToken, async (req, res) => {
   const data = req.body;
   const result = await studioCollection.insertOne(data);
   res.send(result);
 });
 // booking post api
-app.post("/bookings-studios", async (req, res) => {
+app.post("/bookings-studios", verifyToken, async (req, res) => {
   try {
     const data = req.body;
 
@@ -206,7 +206,7 @@ app.post("/bookings-studios", async (req, res) => {
 });
 
 //all delete api
-app.delete("/bookings-studios/:id", async (req, res) => {
+app.delete("/bookings-studios/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -243,7 +243,7 @@ app.delete("/bookings-studios/:id", async (req, res) => {
 });
 
 // user own listing delete api
-app.delete("/my-listings/:id", async (req, res) => {
+app.delete("/my-listings/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -273,7 +273,7 @@ app.delete("/my-listings/:id", async (req, res) => {
 });
 
 // all patch api
-app.patch("/my-listings/:id", async (req, res) => {
+app.patch("/my-listings/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
