@@ -42,6 +42,18 @@ app.get("/studios/:id", async (req, res) => {
   const result = await studioCollection.findOne({ _id: new ObjectId(id) });
   res.send(result);
 });
+// my bookings api
+app.get("/my-bookings/:email", async (req, res) => {
+  const { email } = req.params;
+  const result = await bookingCollection.find({ userEmail: email }).toArray();
+  res.send(result);
+});
+// my listing api
+app.get("/my-listings/:email", async (req, res) => {
+  const { email } = req.params;
+  const result = await studioCollection.find({ userEmail: email }).toArray();
+  res.send(result);
+});
 
 //all post api
 app.post("/add-studios", async (req, res) => {
@@ -49,11 +61,11 @@ app.post("/add-studios", async (req, res) => {
   const result = await studioCollection.insertOne(data);
   res.send(result);
 });
-// app.post("/booking-studios", async (req, res) => {
-//   const data = req.body;
-//   const result = await bookingCollection.insertOne(data);
-//   res.send(result);
-// });
+app.post("/bookings-studios", async (req, res) => {
+  const data = req.body;
+  const result = await bookingCollection.insertOne(data);
+  res.send(result);
+});
 
 app.listen(port, () => {
   console.log(`server app listening on port ${port}`);
