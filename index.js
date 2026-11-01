@@ -27,6 +27,36 @@ const db = mongodbClient.db("studio-space");
 const studioCollection = db.collection("stideos-data");
 const bookingCollection = db.collection("booking-studios");
 
+// auth middleware
+const JWKS = createRemoteJWKSet(
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
+);
+
+const verifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).send({
+      message: "Unauthorized!",
+    });
+  }
+
+  try {
+    const token = authHeader.split(" ")[1];
+    const { payload } = await jwtVerify(token, JWKS);
+
+    req.user = {
+      email: payload.email,
+    };
+
+    next();
+  } catch (error) {
+    return res.status(401).send({
+      message: "Invalid or expired token!",
+    });
+  }
+};
+
 // all get api
 app.get("/", (req, res) => {
   res.send("server is runings");
