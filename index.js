@@ -44,9 +44,30 @@ app.get("/studios/:id", async (req, res) => {
 });
 // my bookings api
 app.get("/my-bookings/:email", async (req, res) => {
-  const { email } = req.params;
-  const result = await bookingCollection.find({ userEmail: email }).toArray();
-  res.send(result);
+  try {
+    const email = req.params.email.trim().toLowerCase();
+
+    const bookings = await bookingCollection
+      .find({ userEmail: email })
+      .toArray();
+
+    return res.status(200).send({
+      success: true,
+      bookings,
+    });
+  } catch (error) {
+    console.error("Fetch bookings error:", error);
+
+    return res.status(500).send({
+      success: false,
+      message: "Failed to fetch bookings.",
+    });
+  }
+});
+// studio limit api
+app.get("/studios-limit", async (req, res) => {
+  const data = await studioCollection.find().limit(6).toArray();
+  res.send(data);
 });
 // my listing api
 app.get("/my-listings/:email", async (req, res) => {
@@ -55,16 +76,236 @@ app.get("/my-listings/:email", async (req, res) => {
   res.send(result);
 });
 
+// category api count
+app.get("/studios/categories/count", async (req, res) => {
+  try {
+    const categories = await db
+      .collection("stideos-data")
+      .aggregate([
+        {
+          $group: {
+            _id: "$category",
+            count: { $sum: 1 },
+          },
+        },
+      ])
+      .toArray();
+
+    res.status(200).json({
+      success: true,
+      data: categories,
+    });
+  } catch (error) {
+    console.error("Category count error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch category counts",
+    });
+  }
+});
+
 //all post api
 app.post("/add-studios", async (req, res) => {
   const data = req.body;
   const result = await studioCollection.insertOne(data);
   res.send(result);
 });
+// booking post api
 app.post("/bookings-studios", async (req, res) => {
-  const data = req.body;
-  const result = await bookingCollection.insertOne(data);
-  res.send(result);
+  try {
+    const data = req.body;
+
+    const { studioId, studioTitle, userEmail } = data;
+
+    if (!studioId || !userEmail || !studioTitle) {
+      return res.status(400).send({
+        success: false,
+        message: "Studio and user information are required.",
+      });
+    }
+
+    // Normalize email to prevent case-sensitive duplicates
+    const normalizedEmail = userEmail.trim().toLowerCase();
+
+    // Check if this user already has an active booking
+    const existingBooking = await bookingCollection.findOne({
+      studioId: String(studioId),
+      userEmail: normalizedEmail,
+      status: { $in: ["Pending", "Confirmed"] },
+    });
+
+    if (existingBooking) {
+      return res.status(409).send({
+        success: false,
+        message: "You have already booked this studio.",
+      });
+    }
+
+    const bookingData = {
+      ...data,
+      studioId: String(studioId),
+      userEmail: normalizedEmail,
+      status: "Pending",
+      bookingDate: new Date().toISOString(),
+    };
+
+    const result = await bookingCollection.insertOne(bookingData);
+
+    return res.status(201).send({
+      success: true,
+      message: "Studio booked successfully!",
+      insertedId: result.insertedId,
+    });
+  } catch (error) {
+    // MongoDB duplicate-key protection
+    if (error.code === 11000) {
+      return res.status(409).send({
+        success: false,
+        message: "You have already booked this studio.",
+      });
+    }
+
+    console.error("Booking creation error:", error);
+
+    return res.status(500).send({
+      success: false,
+      message: "Failed to create booking.",
+    });
+  }
+});
+
+//all delete api
+app.delete("/bookings-studios/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid booking ID.",
+      });
+    }
+
+    const result = await bookingCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "Booking not found.",
+      });
+    }
+
+    return res.status(200).send({
+      success: true,
+      message: "Booking deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Delete booking error:", error);
+
+    return res.status(500).send({
+      success: false,
+      message: "Failed to delete booking.",
+    });
+  }
+});
+
+// user own listing delete api
+app.delete("/my-listings/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await studioCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "Listing not found.",
+      });
+    }
+
+    return res.status(200).send({
+      success: true,
+      message: "Listing deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Delete listing error:", error);
+
+    return res.status(500).send({
+      success: false,
+      message: "Failed to delete listing.",
+    });
+  }
+});
+
+// all patch api
+app.patch("/my-listings/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid listing ID.",
+      });
+    }
+
+    const allowedFields = [
+      "title",
+      "category",
+      "hourlyRate",
+      "securityDeposit",
+      "maxCapacity",
+      "location",
+      "imageUrl",
+      "amenities",
+      "overview",
+    ];
+
+    const updateData = {};
+
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).send({
+        success: false,
+        message: "No fields provided to update.",
+      });
+    }
+
+    const result = await studioCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData },
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "Listing not found.",
+      });
+    }
+
+    return res.status(200).send({
+      success: true,
+      message: "Listing updated successfully.",
+      modified: result.modifiedCount > 0,
+    });
+  } catch (error) {
+    console.error("Update listing error:", error);
+
+    return res.status(500).send({
+      success: false,
+      message: "Failed to update listing.",
+    });
+  }
 });
 
 app.listen(port, () => {
